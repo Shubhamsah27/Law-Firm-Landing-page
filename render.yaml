@@ -1,0 +1,6 @@
+services:
+  - type: web
+    name: law-firm-template
+    runtime: static
+    buildCommand: npm run build
+    publishDir: dist
