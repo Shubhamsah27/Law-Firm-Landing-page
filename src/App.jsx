@@ -275,30 +275,18 @@ function CustomCursor() {
   if (hidden) return null;
 
   return (
-    <>
-      {/* Outer Ring */}
-      <motion.div
-        className="fixed top-0 left-0 w-8 h-8 rounded-full border border-firmGold pointer-events-none z-[9999] -translate-x-1/2 -translate-y-1/2 hidden md:block"
-        animate={{
-          x: position.x,
-          y: position.y,
-          scale: hovered ? 1.5 : 1,
-          backgroundColor: hovered ? "rgba(201, 168, 76, 0.1)" : "rgba(201, 168, 76, 0)",
-          borderColor: hovered ? "#C9A84C" : "rgba(201, 168, 76, 0.5)",
-        }}
-        transition={{ type: "spring", stiffness: 450, damping: 28, mass: 0.2 }}
-      />
-      {/* Inner Dot */}
-      <motion.div
-        className="fixed top-0 left-0 w-2 h-2 bg-firmGold rounded-full pointer-events-none z-[9999] -translate-x-1/2 -translate-y-1/2 hidden md:block"
-        animate={{
-          x: position.x,
-          y: position.y,
-          scale: hovered ? 0 : 1,
-        }}
-        transition={{ type: "spring", stiffness: 800, damping: 35 }}
-      />
-    </>
+    <motion.div
+      className="fixed top-0 left-0 w-2.5 h-2.5 bg-firmGold/60 rounded-full pointer-events-none z-[9999] -translate-x-1/2 -translate-y-1/2 hidden md:block"
+      style={{ boxShadow: "0 0 8px 1px rgba(201, 168, 76, 0.15)" }}
+      animate={{
+        x: position.x,
+        y: position.y,
+        scale: hovered ? 2.2 : 1,
+        backgroundColor: hovered ? "rgba(201, 168, 76, 0.1)" : "rgba(201, 168, 76, 0.6)",
+        border: hovered ? "1px solid rgba(201, 168, 76, 0.6)" : "1px solid transparent",
+      }}
+      transition={{ type: "spring", stiffness: 650, damping: 30, mass: 0.15 }}
+    />
   );
 }
 
