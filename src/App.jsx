@@ -225,6 +225,83 @@ function CinematicPlaceholder({ height = "h-[450px] md:h-[600px]", monogram = "M
   );
 }
 
+// Elegant Custom Gold Pointer and Follower Ring Cursor
+function CustomCursor() {
+  const [position, setPosition] = useState({ x: 0, y: 0 });
+  const [hovered, setHovered] = useState(false);
+  const [hidden, setHidden] = useState(true);
+
+  useEffect(() => {
+    const handleMouseMove = (e) => {
+      setPosition({ x: e.clientX, y: e.clientY });
+      if (hidden) setHidden(false);
+    };
+
+    const handleMouseLeave = () => {
+      setHidden(true);
+    };
+
+    const handleMouseEnter = () => {
+      setHidden(false);
+    };
+
+    const handleLinkHover = (e) => {
+      const target = e.target;
+      const isInteractive = 
+        target.tagName === 'A' || 
+        target.tagName === 'BUTTON' || 
+        target.tagName === 'SELECT' || 
+        target.tagName === 'INPUT' || 
+        target.tagName === 'TEXTAREA' || 
+        target.closest('a') || 
+        target.closest('button') || 
+        target.closest('.cursor-pointer');
+      setHovered(!!isInteractive);
+    };
+
+    document.addEventListener('mousemove', handleMouseMove);
+    document.addEventListener('mouseleave', handleMouseLeave);
+    document.addEventListener('mouseenter', handleMouseEnter);
+    document.addEventListener('mouseover', handleLinkHover);
+
+    return () => {
+      document.removeEventListener('mousemove', handleMouseMove);
+      document.removeEventListener('mouseleave', handleMouseLeave);
+      document.removeEventListener('mouseenter', handleMouseEnter);
+      document.removeEventListener('mouseover', handleLinkHover);
+    };
+  }, [hidden]);
+
+  if (hidden) return null;
+
+  return (
+    <>
+      {/* Outer Ring */}
+      <motion.div
+        className="fixed top-0 left-0 w-8 h-8 rounded-full border border-firmGold pointer-events-none z-[9999] -translate-x-1/2 -translate-y-1/2 hidden md:block"
+        animate={{
+          x: position.x,
+          y: position.y,
+          scale: hovered ? 1.5 : 1,
+          backgroundColor: hovered ? "rgba(201, 168, 76, 0.1)" : "rgba(201, 168, 76, 0)",
+          borderColor: hovered ? "#C9A84C" : "rgba(201, 168, 76, 0.5)",
+        }}
+        transition={{ type: "spring", stiffness: 450, damping: 28, mass: 0.2 }}
+      />
+      {/* Inner Dot */}
+      <motion.div
+        className="fixed top-0 left-0 w-2 h-2 bg-firmGold rounded-full pointer-events-none z-[9999] -translate-x-1/2 -translate-y-1/2 hidden md:block"
+        animate={{
+          x: position.x,
+          y: position.y,
+          scale: hovered ? 0 : 1,
+        }}
+        transition={{ type: "spring", stiffness: 800, damping: 35 }}
+      />
+    </>
+  );
+}
+
 export default function App() {
   const [scrolled, setScrolled] = useState(false);
   const [selectedCase, setSelectedCase] = useState(null);
@@ -371,6 +448,9 @@ export default function App() {
 
   return (
     <div className="relative min-h-screen bg-[#0A0A0F] text-[#F5F1EA] selection:bg-firmGold selection:text-[#0A0A0F]">
+      {/* Custom follower cursor */}
+      <CustomCursor />
+
       {/* Scroll Progress Indicator */}
       <motion.div 
         className="fixed top-0 left-0 right-0 h-[1.5px] bg-firmGold origin-left z-[100]"
