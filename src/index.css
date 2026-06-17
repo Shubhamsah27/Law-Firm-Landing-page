@@ -77,17 +77,5 @@
   }
 }
 
-/* Hide default cursor on desktop when using custom cursor */
-@media (min-width: 768px) {
-  body, 
-  a, 
-  button, 
-  select, 
-  input, 
-  textarea,
-  [role="button"],
-  .cursor-pointer {
-    cursor: none !important;
-  }
-}
+
 
