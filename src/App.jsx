@@ -23,8 +23,8 @@ import {
   Check
 } from 'lucide-react';
 
-// Lightweight, smooth counter animation component with ease-out cubic progress
-function AnimatedCounter({ value }) {
+// Lightweight, smooth counter animation component with ease-out quintic progress
+function AnimatedCounter({ value, delay = 0 }) {
   const [displayValue, setDisplayValue] = useState("0");
   const ref = useRef(null);
   const isInView = useInView(ref, { once: true, margin: "-50px" });
@@ -33,38 +33,98 @@ function AnimatedCounter({ value }) {
     if (isInView) {
       const target = parseFloat(value.replace(/[^0-9.]/g, ''));
       let start = 0;
-      const startTime = performance.now();
       const duration = 1800; // 1.8 seconds
 
-      const updateCount = (now) => {
-        const elapsed = now - startTime;
-        const progress = Math.min(elapsed / duration, 1);
-        
-        // easeOutCubic curve
-        const easeProgress = 1 - Math.pow(1 - progress, 3);
-        const current = start + (target - start) * easeProgress;
+      const runCounter = () => {
+        const startTime = performance.now();
+        const updateCount = (now) => {
+          const elapsed = now - startTime;
+          const progress = Math.min(elapsed / duration, 1);
+          
+          // easeOutQuint (visible deceleration at end)
+          const easeProgress = 1 - Math.pow(1 - progress, 5);
+          const current = start + (target - start) * easeProgress;
 
-        let formatted = "";
-        if (value.includes('.')) {
-          formatted = current.toFixed(1);
-        } else {
-          formatted = Math.round(current).toString();
-        }
-        if (value.includes('+')) {
-          formatted += "+";
-        }
-        setDisplayValue(formatted);
+          let formatted = "";
+          if (value.includes('.')) {
+            formatted = current.toFixed(1);
+          } else {
+            formatted = Math.round(current).toString();
+          }
+          if (value.includes('+')) {
+            formatted += "+";
+          }
+          setDisplayValue(formatted);
 
-        if (progress < 1) {
-          requestAnimationFrame(updateCount);
-        }
+          if (progress < 1) {
+            requestAnimationFrame(updateCount);
+          }
+        };
+        requestAnimationFrame(updateCount);
       };
 
-      requestAnimationFrame(updateCount);
+      if (delay > 0) {
+        const timer = setTimeout(runCounter, delay * 1000);
+        return () => clearTimeout(timer);
+      } else {
+        runCounter();
+      }
     }
-  }, [isInView, value]);
+  }, [isInView, value, delay]);
 
   return <span ref={ref}>{displayValue}</span>;
+}
+
+// Case Results Three-Beat Reveal wrapper
+function CaseAmountReveal({ value, index }) {
+  const isMonetary = value.startsWith('$') && value.endsWith('M');
+
+  if (!isMonetary) {
+    return (
+      <div className="overflow-hidden mb-4">
+        <motion.div
+          initial={{ y: 20, opacity: 0 }}
+          whileInView={{ y: 0, opacity: 1 }}
+          viewport={{ once: true }}
+          transition={{ duration: 0.6, delay: 0.1 + index * 0.1, ease: "easeOut" }}
+          className="font-heading text-3xl md:text-4xl text-firmGold font-light tracking-tight"
+        >
+          {value}
+        </motion.div>
+      </div>
+    );
+  }
+
+  const numberPart = value.substring(1, value.length - 1); // e.g. "12.4"
+  
+  return (
+    <div className="font-heading text-3xl md:text-4xl text-firmGold font-light tracking-tight flex items-baseline justify-start select-none mb-4">
+      {/* Beat 1: $ symbol fades in */}
+      <motion.span
+        initial={{ opacity: 0 }}
+        whileInView={{ opacity: 1 }}
+        viewport={{ once: true }}
+        transition={{ duration: 0.4, delay: 0.1 + index * 0.1, ease: "easeOut" }}
+      >
+        $
+      </motion.span>
+
+      {/* Beat 2: Number counts up */}
+      <span className="mx-0.5">
+        <AnimatedCounter value={numberPart} delay={0.3 + index * 0.1} />
+      </span>
+
+      {/* Beat 3: M fades in last */}
+      <motion.span
+        initial={{ opacity: 0 }}
+        whileInView={{ opacity: 1 }}
+        viewport={{ once: true }}
+        transition={{ duration: 0.4, delay: 1.9 + index * 0.1, ease: "easeOut" }}
+      >
+        M
+      </motion.span>
+    </div>
+  );
 }
 
 // Animation variants for consistency across sections
@@ -100,13 +160,14 @@ function SectionLabel({ text }) {
 // Premium Drawing Divider Line
 function Divider() {
   return (
-    <div className="w-full relative overflow-hidden my-0 h-[1px]">
+    <div className="w-full relative overflow-hidden my-0 h-[1px] bg-transparent">
       <motion.div 
         initial={{ scaleX: 0 }}
         whileInView={{ scaleX: 1 }}
-        viewport={{ once: true, margin: "-100px" }}
+        viewport={{ once: true, margin: "-50px" }}
         transition={{ duration: 0.8, ease: "easeOut" }}
-        className="h-full bg-firmGold/15 origin-left"
+        style={{ background: "rgba(201, 168, 76, 0.15)" }}
+        className="h-[1px] w-full origin-left"
       />
     </div>
   );
@@ -172,12 +233,12 @@ function HeroBrandLogo() {
         }}
         transition={{ type: "spring", stiffness: 120, damping: 20 }}
       />
-      {/* Gold Wipe Overlay - Wipes away from left to right */}
+      {/* Gold Wipe Overlay - Curtain lift */}
       <motion.div 
-        initial={{ scaleX: 1 }}
-        animate={{ scaleX: 0 }}
+        initial={{ scaleY: 1 }}
+        animate={{ scaleY: 0 }}
         transition={{ duration: 1.2, ease: [0.16, 1, 0.3, 1] }}
-        className="absolute inset-0 bg-firmGold origin-left z-20 pointer-events-none"
+        className="absolute inset-0 bg-firmGold origin-top z-20 pointer-events-none"
       />
       {/* Subtle vignette on top */}
       <div className="absolute inset-0 bg-gradient-to-t from-[#0A0A0F]/45 via-transparent to-transparent pointer-events-none z-10" />
@@ -376,41 +437,56 @@ function Preloader({ onComplete }) {
 
 
 // Serpentine timeline step component
-function ProcessStep({ step, index, nodeRef }) {
-  const cardRef = useRef(null);
-  const isInView = useInView(cardRef, { once: true, margin: "-100px" });
+function ProcessStep({ step, index, nodeRef, activated }) {
+  const [glow, setGlow] = useState(false);
+
+  useEffect(() => {
+    if (activated) {
+      setGlow(true);
+      const timer = setTimeout(() => setGlow(false), 1000);
+      return () => clearTimeout(timer);
+    }
+  }, [activated]);
+
   const isEven = index % 2 === 0;
 
   return (
     <div 
-      ref={cardRef}
       className="grid grid-cols-[48px_1fr] md:grid-cols-12 gap-4 md:gap-8 items-center relative py-8 md:py-12 text-left"
     >
       {/* Node Column */}
       <div className="col-start-1 row-start-1 md:col-span-2 md:col-start-6 md:row-start-auto flex justify-center z-20">
         <div 
           ref={nodeRef} 
-          className="relative w-10 h-10 md:w-12 md:h-12 flex items-center justify-center bg-[#0A0A0F] border border-firmBorder/60 hover:border-firmGold transition-colors duration-500"
+          className="relative w-10 h-10 md:w-12 md:h-12 flex items-center justify-center bg-[#0A0A0F] border transition-all duration-700"
+          style={{ 
+            borderColor: activated ? "#C9A84C" : "rgba(201, 168, 76, 0.2)"
+          }}
         >
-          {step.icon}
+          <span className="transition-opacity duration-700" style={{ opacity: activated ? 1 : 0.3 }}>
+            {step.icon}
+          </span>
           {/* Pulsing Glow Shadow on activation */}
-          {isInView && (
-            <motion.div 
-              initial={{ opacity: 0, scale: 0.8 }}
-              animate={{ opacity: [0, 0.5, 0], scale: [0.8, 1.5, 1.8] }}
-              transition={{ duration: 1.5, repeat: 1, ease: "easeOut" }}
-              className="absolute inset-0 bg-firmGold/20 blur-md pointer-events-none"
-            />
-          )}
+          <AnimatePresence>
+            {glow && (
+              <motion.div 
+                initial={{ opacity: 0 }}
+                animate={{ opacity: [0, 0.4, 0] }}
+                exit={{ opacity: 0 }}
+                transition={{ duration: 1.0, ease: "easeInOut" }}
+                className="absolute inset-0 bg-firmGold/20 blur-md pointer-events-none"
+              />
+            )}
+          </AnimatePresence>
         </div>
       </div>
 
       {/* Content Column */}
       <div className={`col-start-2 row-start-1 md:col-span-5 ${isEven ? 'md:col-start-1 md:text-right' : 'md:col-start-8 md:text-left'} z-10`}>
         <motion.div
-          initial={{ y: 30, opacity: 0 }}
-          animate={isInView ? { y: 0, opacity: 1 } : {}}
-          transition={{ duration: 0.6, ease: [0.16, 1, 0.3, 1] }}
+          initial={{ y: 15, opacity: 0 }}
+          animate={activated ? { y: 0, opacity: 1 } : { y: 15, opacity: 0 }}
+          transition={{ duration: 0.6, ease: "easeOut", delay: 0.2 }}
         >
           <h3 className="font-heading text-lg md:text-xl text-firmText mb-3">
             {step.title}
@@ -432,6 +508,7 @@ function ProcessSection({ steps }) {
   const containerRef = useRef(null);
   const nodeRefs = useRef([]);
   const [points, setPoints] = useState([]);
+  const [activeStep, setActiveStep] = useState(-1);
 
   if (nodeRefs.current.length !== steps.length) {
     nodeRefs.current = Array(steps.length).fill(null);
@@ -465,7 +542,24 @@ function ProcessSection({ steps }) {
     target: containerRef,
     offset: ["start center", "end center"]
   });
-  const pathLength = useSpring(scrollYProgress, { stiffness: 50, damping: 20 });
+  
+  const pathLength = useTransform(scrollYProgress, [0, 1], [0, 1]);
+
+  useEffect(() => {
+    return scrollYProgress.onChange((latest) => {
+      if (latest > 0.95) {
+        setActiveStep(3);
+      } else if (latest > 0.66) {
+        setActiveStep(2);
+      } else if (latest > 0.33) {
+        setActiveStep(1);
+      } else if (latest > 0.05) {
+        setActiveStep(0);
+      } else {
+        setActiveStep(-1);
+      }
+    });
+  }, [scrollYProgress]);
 
   let d = "";
   if (points.length > 0 && points[0].x !== 0) {
@@ -515,6 +609,7 @@ function ProcessSection({ steps }) {
                 step={step} 
                 index={index} 
                 nodeRef={(el) => (nodeRefs.current[index] = el)} 
+                activated={activeStep >= index}
               />
             ))}
           </div>
@@ -545,7 +640,7 @@ function FocusBorderInput({ ...props }) {
         initial={{ scaleX: 0 }}
         animate={{ scaleX: focused ? 1 : 0 }}
         transition={{ duration: 0.3, ease: "easeOut" }}
-        className="absolute bottom-0 left-0 right-0 h-[1.5px] bg-firmGold origin-left pointer-events-none z-10"
+        className="absolute bottom-0 left-0 right-0 h-[1px] bg-firmGold origin-left pointer-events-none z-10"
       />
     </div>
   );
@@ -574,25 +669,121 @@ function FocusBorderSelect({ children, ...props }) {
         initial={{ scaleX: 0 }}
         animate={{ scaleX: focused ? 1 : 0 }}
         transition={{ duration: 0.3, ease: "easeOut" }}
-        className="absolute bottom-0 left-0 right-0 h-[1.5px] bg-firmGold origin-left pointer-events-none z-10"
+        className="absolute bottom-0 left-0 right-0 h-[1px] bg-firmGold origin-left pointer-events-none z-10"
       />
     </div>
   );
 }
 
-// Redesigned Contact CTA button with left-to-right sweep hover effect
-function SweepButton({ children, disabled, type }) {
-  return (
-    <button 
-      type={type}
-      disabled={disabled}
-      className="relative w-full border border-firmGold text-firmGold py-4 text-xs font-semibold tracking-widest uppercase overflow-hidden group transition-colors duration-300 hover:text-[#0A0A0F] flex items-center justify-center space-x-2"
-    >
+// Sweep button with left-to-right fill hover effect
+function SweepButton({ href, children, disabled, type, className = "" }) {
+  const baseClasses = "relative border border-firmGold text-firmGold font-semibold tracking-widest uppercase overflow-hidden group transition-colors duration-300 hover:text-[#0A0A0F] flex items-center justify-center";
+  
+  const content = (
+    <>
       <div className="absolute inset-0 bg-firmGold origin-left scale-x-0 group-hover:scale-x-100 transition-transform duration-300 ease-out z-0" />
-      <span className="relative z-10 flex items-center justify-center space-x-2 w-full h-full">
+      <span className="relative z-10 flex items-center justify-center space-x-2">
         {children}
       </span>
+    </>
+  );
+
+  if (href) {
+    return (
+      <a href={href} className={`${baseClasses} ${className}`}>
+        {content}
+      </a>
+    );
+  }
+
+  return (
+    <button type={type} disabled={disabled} className={`${baseClasses} ${className}`}>
+      {content}
     </button>
+  );
+}
+
+// Testimonials Slider / Carousel component
+function TestimonialCarousel() {
+  const testimonials = [
+    {
+      text: "The team guided us through a difficult dispute with remarkable clarity and professionalism.",
+      author: "Sarah K.",
+      case: "Business Litigation"
+    },
+    {
+      text: "We felt supported from our first consultation through the final outcome. Their strategy was unmatched.",
+      author: "James R.",
+      case: "Family Law"
+    },
+    {
+      text: "Exceptional legal counsel delivered exactly when it mattered most. I highly recommend Jonathan Mercer.",
+      author: "Michael T.",
+      case: "Criminal Defense"
+    }
+  ];
+
+  const [idx, setIdx] = useState(0);
+  const [hovered, setHovered] = useState(false);
+
+  useEffect(() => {
+    if (hovered) return;
+    const interval = setInterval(() => {
+      setIdx((prev) => (prev + 1) % testimonials.length);
+    }, 5000);
+    return () => clearInterval(interval);
+  }, [hovered, testimonials.length]);
+
+  return (
+    <div 
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
+      className="relative max-w-3xl mx-auto"
+    >
+      <div className="min-h-[220px] md:min-h-[180px] flex items-center justify-center">
+        <AnimatePresence mode="wait">
+          <motion.div
+            key={idx}
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -10 }}
+            transition={{ duration: 0.8, ease: "easeOut" }}
+            className="w-full text-center"
+          >
+            {/* Stars */}
+            <div className="flex justify-center mb-6">
+              <div className="flex space-x-1">
+                {Array.from({ length: 5 }).map((_, i) => (
+                  <Star key={i} className="w-4 h-4 text-firmGold fill-firmGold" />
+                ))}
+              </div>
+            </div>
+            
+            <blockquote className="font-heading text-xl md:text-2xl lg:text-3xl text-firmText italic font-light leading-relaxed max-w-2xl mx-auto mb-6">
+              "{testimonials[idx].text}"
+            </blockquote>
+            
+            <cite className="not-italic text-xs tracking-widest text-firmMuted uppercase font-medium block">
+              — {testimonials[idx].author} <span className="text-firmGold mx-2">·</span> {testimonials[idx].case}
+            </cite>
+          </motion.div>
+        </AnimatePresence>
+      </div>
+
+      {/* Indicator dots */}
+      <div className="flex justify-center space-x-2.5 mt-8">
+        {testimonials.map((_, dotIdx) => (
+          <button
+            key={dotIdx}
+            onClick={() => setIdx(dotIdx)}
+            className="w-2 h-2 transition-colors duration-300 focus:outline-none"
+            style={{ 
+              backgroundColor: idx === dotIdx ? "#C9A84C" : "rgba(201, 168, 76, 0.3)" 
+            }}
+          />
+        ))}
+      </div>
+    </div>
   );
 }
 
@@ -826,12 +1017,9 @@ export default function App() {
 
           {/* Consultation Button */}
           <div className="flex items-center">
-            <a 
-              href="#contact" 
-              className="px-5 py-2.5 text-[10px] md:text-xs font-semibold tracking-[0.2em] uppercase border border-firmGold text-firmGold hover:bg-firmGold hover:text-[#0A0A0F] transition-all duration-300"
-            >
+            <SweepButton href="#contact" className="px-5 py-2.5 text-[10px] md:text-xs tracking-[0.2em]">
               Schedule Consultation
-            </a>
+            </SweepButton>
           </div>
         </div>
         {/* Bottom Gold Border draws left-to-right when scrolled */}
@@ -850,8 +1038,15 @@ export default function App() {
         <section id="hero" className="relative pt-32 md:pt-40 pb-20 md:pb-32 overflow-hidden">
           {/* Institutional Watermark */}
           <div className="absolute inset-0 flex items-center justify-center pointer-events-none select-none z-0 overflow-hidden">
-            <span className="font-heading text-[11vw] font-bold text-firmGold opacity-[0.03] whitespace-nowrap tracking-[0.15em] uppercase translate-y-[-10%]">
-              Mercer Law
+            <span 
+              className="font-heading font-bold text-firmGold uppercase whitespace-nowrap tracking-[0.15em]"
+              style={{ 
+                opacity: 0.045, 
+                fontSize: "clamp(300px, 40vw, 600px)",
+                lineHeight: 1
+              }}
+            >
+              MERCER LAW
             </span>
           </div>
 
@@ -891,7 +1086,7 @@ export default function App() {
                       <motion.div
                         initial={{ y: 40, opacity: 0 }}
                         animate={{ y: 0, opacity: 1 }}
-                        transition={{ duration: 1.0, delay: idx * 0.12, ease: [0.16, 1, 0.3, 1] }}
+                        transition={{ duration: 0.6, delay: idx * 0.2, ease: "easeOut" }}
                       >
                         {line}
                       </motion.div>
@@ -914,12 +1109,9 @@ export default function App() {
                   transition={{ duration: 0.8, delay: 0.58, ease: [0.16, 1, 0.3, 1] }}
                   className="flex flex-wrap items-center gap-6"
                 >
-                  <a 
-                    href="#contact" 
-                    className="px-8 py-4 text-xs font-semibold tracking-[0.2em] uppercase border border-firmGold text-firmGold bg-firmGold/5 hover:bg-firmGold hover:text-[#0A0A0F] transition-all duration-300"
-                  >
+                  <SweepButton href="#contact" className="px-8 py-4 text-xs tracking-[0.2em] bg-firmGold/5">
                     Schedule Consultation
-                  </a>
+                  </SweepButton>
                   <a 
                     href="#practice-areas" 
                     className="group flex items-center space-x-2 text-xs font-semibold tracking-[0.2em] uppercase text-firmText hover:text-firmGold transition-colors py-2"
@@ -927,6 +1119,23 @@ export default function App() {
                     <span>View Practice Areas</span>
                     <ArrowRight className="w-4 h-4 transition-transform group-hover:translate-x-1" />
                   </a>
+                </motion.div>
+
+                {/* Prestige Strip */}
+                <motion.div 
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  transition={{ duration: 0.8, delay: 0.7 }}
+                  className="mt-12 flex flex-wrap items-center gap-x-4 gap-y-2 text-[10px] tracking-[0.3em] font-semibold uppercase select-none text-firmText/30 text-left"
+                >
+                  {["Chambers", "Best Lawyers", "Super Lawyers", "Martindale-Hubbell"].map((item, idx) => (
+                    <React.Fragment key={idx}>
+                      {idx > 0 && <span className="text-firmText/20 pointer-events-none">·</span>}
+                      <span className="transition-colors duration-200 cursor-default hover:text-firmGold">
+                        {item}
+                      </span>
+                    </React.Fragment>
+                  ))}
                 </motion.div>
               </motion.div>
             </div>
@@ -1167,17 +1376,7 @@ export default function App() {
                       <span className="text-[10px] font-semibold tracking-widest text-firmGold/60 uppercase block mb-2">
                         {result.type}
                       </span>
-                      <div className="overflow-hidden mb-4">
-                        <motion.div
-                          initial={{ y: 30, opacity: 0 }}
-                          whileInView={{ y: 0, opacity: 1 }}
-                          viewport={{ once: true }}
-                          transition={{ duration: 0.6, delay: 0.1 + index * 0.1, ease: [0.16, 1, 0.3, 1] }}
-                          className="font-heading text-3xl md:text-4xl text-firmGold font-light tracking-tight"
-                        >
-                          {result.amount}
-                        </motion.div>
-                      </div>
+                      <CaseAmountReveal value={result.amount} index={index} />
                       <div className="text-xs md:text-sm text-firmText font-medium">
                         {result.label}
                       </div>
@@ -1203,68 +1402,8 @@ export default function App() {
           <div className="editorial-container">
             <div className="max-w-3xl mx-auto text-center">
               <SectionLabel text="TESTIMONIALS" />
-              
               <div className="mt-8">
-                {/* Single Big Editorial Quote slider or scroll layout */}
-                <div className="space-y-16">
-                  {[
-                    {
-                      text: "The team guided us through a difficult dispute with remarkable clarity and professionalism.",
-                      author: "Sarah K.",
-                      case: "Business Litigation"
-                    },
-                    {
-                      text: "We felt supported from our first consultation through the final outcome. Their strategy was unmatched.",
-                      author: "James R.",
-                      case: "Family Law"
-                    },
-                    {
-                      text: "Exceptional legal counsel delivered exactly when it mattered most. I highly recommend Jonathan Mercer.",
-                      author: "Michael T.",
-                      case: "Criminal Defense"
-                    }
-                  ].map((t, index) => (
-                    <motion.div 
-                      key={index}
-                      initial="hidden"
-                      whileInView="visible"
-                      viewport={{ once: true, margin: "-100px" }}
-                      variants={staggerContainer}
-                      className="border-b border-firmBorder/20 pb-16 last:border-b-0 last:pb-0"
-                    >
-                      <div className="flex justify-center mb-6">
-                        <motion.div 
-                          variants={staggerContainer}
-                          className="flex space-x-1"
-                        >
-                          {Array.from({ length: 5 }).map((_, i) => (
-                            <motion.div
-                              key={i}
-                              variants={{
-                                hidden: { scale: 0, opacity: 0 },
-                                visible: { scale: 1, opacity: 1, transition: { duration: 0.3, ease: "easeOut" } }
-                              }}
-                            >
-                              <Star className="w-4 h-4 text-firmGold fill-firmGold" />
-                            </motion.div>
-                          ))}
-                        </motion.div>
-                      </div>
-                      <motion.blockquote 
-                        variants={fadeUpVariants}
-                        className="font-heading text-2xl md:text-3xl lg:text-4xl text-firmText italic font-light leading-relaxed max-w-2xl mx-auto mb-6"
-                      >
-                        "{t.text}"
-                      </motion.blockquote>
-                      <motion.cite 
-                        variants={fadeUpVariants}
-                        className="not-italic text-xs tracking-widest text-firmMuted uppercase font-medium block"
-                      >
-                        — {t.author} <span className="text-firmGold mx-2">·</span> {t.case}
-                      </motion.cite>
-                    </motion.div>
-                  ))}
-                </div>
+                <TestimonialCarousel />
               </div>
             </div>
           </div>
