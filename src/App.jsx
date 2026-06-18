@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import { motion, AnimatePresence, useScroll, useSpring } from 'framer-motion';
+import React, { useState, useEffect, useRef } from 'react';
+import { motion, AnimatePresence, useScroll, useSpring, useInView, animate, useTransform } from 'framer-motion';
 import { 
   Shield, 
   Briefcase, 
@@ -22,6 +22,50 @@ import {
   ChevronRight,
   Check
 } from 'lucide-react';
+
+// Lightweight, smooth counter animation component with ease-out cubic progress
+function AnimatedCounter({ value }) {
+  const [displayValue, setDisplayValue] = useState("0");
+  const ref = useRef(null);
+  const isInView = useInView(ref, { once: true, margin: "-50px" });
+
+  useEffect(() => {
+    if (isInView) {
+      const target = parseFloat(value.replace(/[^0-9.]/g, ''));
+      let start = 0;
+      const startTime = performance.now();
+      const duration = 1800; // 1.8 seconds
+
+      const updateCount = (now) => {
+        const elapsed = now - startTime;
+        const progress = Math.min(elapsed / duration, 1);
+        
+        // easeOutCubic curve
+        const easeProgress = 1 - Math.pow(1 - progress, 3);
+        const current = start + (target - start) * easeProgress;
+
+        let formatted = "";
+        if (value.includes('.')) {
+          formatted = current.toFixed(1);
+        } else {
+          formatted = Math.round(current).toString();
+        }
+        if (value.includes('+')) {
+          formatted += "+";
+        }
+        setDisplayValue(formatted);
+
+        if (progress < 1) {
+          requestAnimationFrame(updateCount);
+        }
+      };
+
+      requestAnimationFrame(updateCount);
+    }
+  }, [isInView, value]);
+
+  return <span ref={ref}>{displayValue}</span>;
+}
 
 // Animation variants for consistency across sections
 const fadeUpVariants = {
@@ -56,13 +100,13 @@ function SectionLabel({ text }) {
 // Premium Drawing Divider Line
 function Divider() {
   return (
-    <div className="w-full relative overflow-hidden my-0">
-      <motion.hr 
+    <div className="w-full relative overflow-hidden my-0 h-[1px]">
+      <motion.div 
         initial={{ scaleX: 0 }}
         whileInView={{ scaleX: 1 }}
-        viewport={{ once: true }}
-        transition={{ duration: 1.5, ease: [0.16, 1, 0.3, 1] }}
-        className="border-t border-firmBorder/30 origin-left"
+        viewport={{ once: true, margin: "-100px" }}
+        transition={{ duration: 0.8, ease: "easeOut" }}
+        className="h-full bg-firmGold/15 origin-left"
       />
     </div>
   );
@@ -113,7 +157,7 @@ function HeroBrandLogo() {
     <div 
       onMouseMove={handleMouseMove}
       onMouseLeave={handleMouseLeave}
-      className="relative w-full h-[400px] md:h-[550px] border border-firmBorder overflow-hidden group cursor-pointer"
+      className="relative w-full h-[400px] md:h-[550px] border border-firmBorder overflow-hidden group cursor-pointer interactive-cursor-target"
       style={{ perspective: 1000 }}
     >
       {/* Logo Brand Image */}
@@ -128,6 +172,13 @@ function HeroBrandLogo() {
         }}
         transition={{ type: "spring", stiffness: 120, damping: 20 }}
       />
+      {/* Gold Wipe Overlay - Wipes away from left to right */}
+      <motion.div 
+        initial={{ scaleX: 1 }}
+        animate={{ scaleX: 0 }}
+        transition={{ duration: 1.2, ease: [0.16, 1, 0.3, 1] }}
+        className="absolute inset-0 bg-firmGold origin-left z-20 pointer-events-none"
+      />
       {/* Subtle vignette on top */}
       <div className="absolute inset-0 bg-gradient-to-t from-[#0A0A0F]/45 via-transparent to-transparent pointer-events-none z-10" />
       
@@ -138,9 +189,26 @@ function HeroBrandLogo() {
 }
 
 // 3D Tilt Card wrapper
-function InteractiveCard3D({ children, onClick, className = "" }) {
+function InteractiveCard3D({ children, onClick, className = "", drawTopBorder = false, borderDelay = 0 }) {
   const [coords, setCoords] = useState({ x: 0, y: 0 });
   const [hovered, setHovered] = useState(false);
+  const cardRef = useRef(null);
+  const [dimensions, setDimensions] = useState({ width: 0, height: 0 });
+
+  const updateDimensions = () => {
+    if (cardRef.current) {
+      setDimensions({
+        width: cardRef.current.clientWidth,
+        height: cardRef.current.clientHeight
+      });
+    }
+  };
+
+  useEffect(() => {
+    updateDimensions();
+    window.addEventListener('resize', updateDimensions);
+    return () => window.removeEventListener('resize', updateDimensions);
+  }, []);
 
   const handleMouseMove = (e) => {
     const rect = e.currentTarget.getBoundingClientRect();
@@ -149,17 +217,23 @@ function InteractiveCard3D({ children, onClick, className = "" }) {
     setCoords({ x, y });
   };
 
+  const strokeDasharray = dimensions.width && dimensions.height ? 2 * (dimensions.width + dimensions.height) : 0;
+
   return (
     <div style={{ perspective: 1200 }} className="h-full">
       <motion.div
+        ref={cardRef}
         onMouseMove={handleMouseMove}
-        onMouseEnter={() => setHovered(true)}
+        onMouseEnter={() => {
+          setHovered(true);
+          updateDimensions();
+        }}
         onMouseLeave={() => {
           setHovered(false);
           setCoords({ x: 0, y: 0 });
         }}
         onClick={onClick}
-        className={`relative bg-firmSurface border border-firmBorder p-8 text-left cursor-pointer select-none h-full flex flex-col justify-between ${className}`}
+        className={`relative bg-firmSurface border border-firmBorder p-8 text-left cursor-pointer select-none h-full flex flex-col justify-between interactive-card interactive-cursor-target ${className}`}
         style={{ transformStyle: "preserve-3d" }}
         animate={{
           rotateY: hovered ? coords.x * 20 : 0,
@@ -172,9 +246,39 @@ function InteractiveCard3D({ children, onClick, className = "" }) {
         }}
         transition={{ type: "spring", stiffness: 200, damping: 22 }}
       >
+        {/* Top border line draw */}
+        {drawTopBorder && (
+          <div className="absolute top-0 left-0 right-0 h-[1.5px] overflow-hidden z-40">
+            <motion.div 
+              initial={{ scaleX: 0 }}
+              whileInView={{ scaleX: 1 }}
+              viewport={{ once: true }}
+              transition={{ duration: 0.8, delay: borderDelay, ease: "easeOut" }}
+              className="h-full bg-firmGold origin-left"
+            />
+          </div>
+        )}
+
+        {/* Clockwise drawing border SVG overlay on hover */}
+        {dimensions.width > 0 && strokeDasharray > 0 && (
+          <svg className="absolute inset-0 w-full h-full pointer-events-none z-30" style={{ transform: "translateZ(1px)" }}>
+            <motion.rect
+              width={dimensions.width}
+              height={dimensions.height}
+              fill="none"
+              stroke="#C9A84C"
+              strokeWidth="2"
+              initial={{ strokeDashoffset: strokeDasharray }}
+              animate={{ strokeDashoffset: hovered ? 0 : strokeDasharray }}
+              style={{ strokeDasharray }}
+              transition={{ duration: 0.6, ease: [0.16, 1, 0.3, 1] }}
+            />
+          </svg>
+        )}
+        
         {/* 3D Inner Content Depth effect */}
         <div style={{ transform: hovered ? "translateZ(30px)" : "translateZ(0px)", transformStyle: "preserve-3d", transition: "transform 0.3s ease" }} className="h-full flex flex-col justify-between">
-          {children}
+          {typeof children === 'function' ? children({ hovered }) : children}
         </div>
       </motion.div>
     </div>
@@ -270,6 +374,228 @@ function Preloader({ onComplete }) {
   );
 }
 
+
+// Serpentine timeline step component
+function ProcessStep({ step, index, nodeRef }) {
+  const cardRef = useRef(null);
+  const isInView = useInView(cardRef, { once: true, margin: "-100px" });
+  const isEven = index % 2 === 0;
+
+  return (
+    <div 
+      ref={cardRef}
+      className="grid grid-cols-[48px_1fr] md:grid-cols-12 gap-4 md:gap-8 items-center relative py-8 md:py-12 text-left"
+    >
+      {/* Node Column */}
+      <div className="col-start-1 row-start-1 md:col-span-2 md:col-start-6 md:row-start-auto flex justify-center z-20">
+        <div 
+          ref={nodeRef} 
+          className="relative w-10 h-10 md:w-12 md:h-12 flex items-center justify-center bg-[#0A0A0F] border border-firmBorder/60 hover:border-firmGold transition-colors duration-500"
+        >
+          {step.icon}
+          {/* Pulsing Glow Shadow on activation */}
+          {isInView && (
+            <motion.div 
+              initial={{ opacity: 0, scale: 0.8 }}
+              animate={{ opacity: [0, 0.5, 0], scale: [0.8, 1.5, 1.8] }}
+              transition={{ duration: 1.5, repeat: 1, ease: "easeOut" }}
+              className="absolute inset-0 bg-firmGold/20 blur-md pointer-events-none"
+            />
+          )}
+        </div>
+      </div>
+
+      {/* Content Column */}
+      <div className={`col-start-2 row-start-1 md:col-span-5 ${isEven ? 'md:col-start-1 md:text-right' : 'md:col-start-8 md:text-left'} z-10`}>
+        <motion.div
+          initial={{ y: 30, opacity: 0 }}
+          animate={isInView ? { y: 0, opacity: 1 } : {}}
+          transition={{ duration: 0.6, ease: [0.16, 1, 0.3, 1] }}
+        >
+          <h3 className="font-heading text-lg md:text-xl text-firmText mb-3">
+            {step.title}
+          </h3>
+          <p className="text-xs md:text-sm text-firmMuted font-light leading-relaxed">
+            {step.desc}
+          </p>
+        </motion.div>
+      </div>
+
+      {/* Spacer Column (desktop only) */}
+      <div className={`hidden md:block md:col-span-5 ${isEven ? 'md:col-start-8' : 'md:col-start-1'}`} />
+    </div>
+  );
+}
+
+// Serpentine timeline section component
+function ProcessSection({ steps }) {
+  const containerRef = useRef(null);
+  const nodeRefs = useRef([]);
+  const [points, setPoints] = useState([]);
+
+  if (nodeRefs.current.length !== steps.length) {
+    nodeRefs.current = Array(steps.length).fill(null);
+  }
+
+  const calculatePath = () => {
+    if (!containerRef.current) return;
+    const parentRect = containerRef.current.getBoundingClientRect();
+    const newPoints = nodeRefs.current.map((node) => {
+      if (!node) return { x: 0, y: 0 };
+      const rect = node.getBoundingClientRect();
+      return {
+        x: rect.left - parentRect.left + rect.width / 2,
+        y: rect.top - parentRect.top + rect.height / 2
+      };
+    });
+    setPoints(newPoints);
+  };
+
+  useEffect(() => {
+    calculatePath();
+    const timer = setTimeout(calculatePath, 500);
+    window.addEventListener('resize', calculatePath);
+    return () => {
+      window.removeEventListener('resize', calculatePath);
+      clearTimeout(timer);
+    };
+  }, []);
+
+  const { scrollYProgress } = useScroll({
+    target: containerRef,
+    offset: ["start center", "end center"]
+  });
+  const pathLength = useSpring(scrollYProgress, { stiffness: 50, damping: 20 });
+
+  let d = "";
+  if (points.length > 0 && points[0].x !== 0) {
+    d = `M ${points[0].x} ${points[0].y}`;
+    for (let i = 0; i < points.length - 1; i++) {
+      const p0 = points[i];
+      const p1 = points[i + 1];
+      const dy = p1.y - p0.y;
+      d += ` C ${p0.x} ${p0.y + dy / 2}, ${p1.x} ${p1.y - dy / 2}, ${p1.x} ${p1.y}`;
+    }
+  }
+
+  return (
+    <section id="process" className="py-20 md:py-32 bg-firmSurface/10 relative overflow-hidden">
+      <div className="editorial-container">
+        <div className="max-w-2xl text-left mb-16 md:mb-24">
+          <SectionLabel text="OUR PROCESS" />
+          <h2 className="font-heading text-3xl md:text-5xl font-light text-firmText mt-2">
+            A Meticulous Path to Resolution
+          </h2>
+        </div>
+
+        <div ref={containerRef} className="relative">
+          {/* SVG Connector Path */}
+          {d && (
+            <svg className="absolute inset-0 w-full h-full pointer-events-none z-0" xmlns="http://www.w3.org/2000/svg">
+              <path 
+                d={d} 
+                fill="none" 
+                stroke="rgba(201, 168, 76, 0.08)" 
+                strokeWidth="2" 
+              />
+              <motion.path 
+                d={d} 
+                fill="none" 
+                stroke="#C9A84C" 
+                strokeWidth="2"
+                style={{ pathLength }}
+              />
+            </svg>
+          )}
+
+          <div className="space-y-0 relative z-10">
+            {steps.map((step, index) => (
+              <ProcessStep 
+                key={index} 
+                step={step} 
+                index={index} 
+                nodeRef={(el) => (nodeRefs.current[index] = el)} 
+              />
+            ))}
+          </div>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+// Form field with bottom border drawing on focus
+function FocusBorderInput({ ...props }) {
+  const [focused, setFocused] = useState(false);
+  return (
+    <div className="relative w-full">
+      <input 
+        {...props}
+        onFocus={(e) => {
+          setFocused(true);
+          if (props.onFocus) props.onFocus(e);
+        }}
+        onBlur={(e) => {
+          setFocused(false);
+          if (props.onBlur) props.onBlur(e);
+        }}
+        className={`${props.className} border-firmBorder focus:border-firmBorder/40 focus:outline-none`}
+      />
+      <motion.div 
+        initial={{ scaleX: 0 }}
+        animate={{ scaleX: focused ? 1 : 0 }}
+        transition={{ duration: 0.3, ease: "easeOut" }}
+        className="absolute bottom-0 left-0 right-0 h-[1.5px] bg-firmGold origin-left pointer-events-none z-10"
+      />
+    </div>
+  );
+}
+
+// Form select dropdown with bottom border drawing on focus
+function FocusBorderSelect({ children, ...props }) {
+  const [focused, setFocused] = useState(false);
+  return (
+    <div className="relative w-full">
+      <select 
+        {...props}
+        onFocus={(e) => {
+          setFocused(true);
+          if (props.onFocus) props.onFocus(e);
+        }}
+        onBlur={(e) => {
+          setFocused(false);
+          if (props.onBlur) props.onBlur(e);
+        }}
+        className={`${props.className} border-firmBorder focus:border-firmBorder/40 focus:outline-none`}
+      >
+        {children}
+      </select>
+      <motion.div 
+        initial={{ scaleX: 0 }}
+        animate={{ scaleX: focused ? 1 : 0 }}
+        transition={{ duration: 0.3, ease: "easeOut" }}
+        className="absolute bottom-0 left-0 right-0 h-[1.5px] bg-firmGold origin-left pointer-events-none z-10"
+      />
+    </div>
+  );
+}
+
+// Redesigned Contact CTA button with left-to-right sweep hover effect
+function SweepButton({ children, disabled, type }) {
+  return (
+    <button 
+      type={type}
+      disabled={disabled}
+      className="relative w-full border border-firmGold text-firmGold py-4 text-xs font-semibold tracking-widest uppercase overflow-hidden group transition-colors duration-300 hover:text-[#0A0A0F] flex items-center justify-center space-x-2"
+    >
+      <div className="absolute inset-0 bg-firmGold origin-left scale-x-0 group-hover:scale-x-100 transition-transform duration-300 ease-out z-0" />
+      <span className="relative z-10 flex items-center justify-center space-x-2 w-full h-full">
+        {children}
+      </span>
+    </button>
+  );
+}
+
 export default function App() {
   const [loading, setLoading] = useState(true);
   const [scrolled, setScrolled] = useState(false);
@@ -290,6 +616,24 @@ export default function App() {
     damping: 30,
     restDelta: 0.001
   });
+
+  const [isMobile, setIsMobile] = useState(false);
+
+  useEffect(() => {
+    const checkMobile = () => {
+      setIsMobile(window.innerWidth < 768);
+    };
+    checkMobile();
+    window.addEventListener('resize', checkMobile);
+    return () => window.removeEventListener('resize', checkMobile);
+  }, []);
+
+  const trustBarRef = useRef(null);
+  const { scrollYProgress: trustBarScroll } = useScroll({
+    target: trustBarRef,
+    offset: ["start end", "end start"]
+  });
+  const trustBarY = useTransform(trustBarScroll, [0, 1], isMobile ? [0, 0] : [15, -15]);
 
   // Lock scroll while loader is active
   useEffect(() => {
@@ -436,6 +780,7 @@ export default function App() {
         )}
       </AnimatePresence>
 
+
       {/* Scroll Progress Indicator */}
       <motion.div 
         className="fixed top-0 left-0 right-0 h-[1.5px] bg-firmGold origin-left z-[100]"
@@ -447,7 +792,7 @@ export default function App() {
       <div className="vignette-overlay" />
 
       {/* Header / Navigation */}
-      <header className={`fixed top-0 left-0 w-full z-50 transition-colors duration-500 border-b border-transparent ${scrolled ? 'bg-[#0A0A0F]/90 backdrop-blur-md border-firmBorder' : 'bg-transparent'}`}>
+      <header className={`fixed top-0 left-0 w-full z-50 transition-colors duration-500 ${scrolled ? 'bg-[#0A0A0F]/95 backdrop-blur-md' : 'bg-transparent'}`}>
         <div className="editorial-container flex justify-between items-center h-20 md:h-24">
           {/* Logo */}
           <a href="#" className="flex items-center group">
@@ -460,12 +805,23 @@ export default function App() {
 
           {/* Navigation Links */}
           <nav className="hidden lg:flex items-center space-x-8 text-xs font-medium tracking-[0.2em] uppercase text-firmMuted">
-            <NavLink href="#practice-areas">Practice Areas</NavLink>
-            <NavLink href="#process">Process</NavLink>
-            <NavLink href="#attorney">Attorney</NavLink>
-            <NavLink href="#results">Results</NavLink>
-            <NavLink href="#insights">Insights</NavLink>
-            <NavLink href="#contact">Contact</NavLink>
+            {[
+              { href: "#practice-areas", label: "Practice Areas" },
+              { href: "#process", label: "Process" },
+              { href: "#attorney", label: "Attorney" },
+              { href: "#results", label: "Results" },
+              { href: "#insights", label: "Insights" },
+              { href: "#contact", label: "Contact" },
+            ].map((link, idx) => (
+              <motion.div
+                key={idx}
+                initial={{ y: -10, opacity: 0 }}
+                animate={{ y: 0, opacity: 1 }}
+                transition={{ duration: 0.4, delay: 0.3 + idx * 0.05, ease: "easeOut" }}
+              >
+                <NavLink href={link.href}>{link.label}</NavLink>
+              </motion.div>
+            ))}
           </nav>
 
           {/* Consultation Button */}
@@ -478,14 +834,28 @@ export default function App() {
             </a>
           </div>
         </div>
+        {/* Bottom Gold Border draws left-to-right when scrolled */}
+        <motion.div 
+          initial={{ scaleX: 0 }}
+          animate={{ scaleX: scrolled ? 1 : 0 }}
+          transition={{ duration: 0.4, ease: "easeOut" }}
+          className="absolute bottom-0 left-0 right-0 h-[1px] bg-firmBorder origin-left"
+        />
       </header>
 
       {/* Content Wrapper */}
       <main className="relative z-10">
 
         {/* SECTION 01 — HERO */}
-        <section id="hero" className="pt-32 md:pt-40 pb-20 md:pb-32 overflow-hidden">
-          <div className="editorial-container">
+        <section id="hero" className="relative pt-32 md:pt-40 pb-20 md:pb-32 overflow-hidden">
+          {/* Institutional Watermark */}
+          <div className="absolute inset-0 flex items-center justify-center pointer-events-none select-none z-0 overflow-hidden">
+            <span className="font-heading text-[11vw] font-bold text-firmGold opacity-[0.03] whitespace-nowrap tracking-[0.15em] uppercase translate-y-[-10%]">
+              Mercer Law
+            </span>
+          </div>
+
+          <div className="editorial-container relative z-10">
             <div className="grid grid-cols-1 lg:grid-cols-12 gap-12 lg:gap-16 items-center">
               {/* Left Column: Cinematic Brand Portrait */}
               <motion.div 
@@ -501,14 +871,17 @@ export default function App() {
               {/* Right Column: Hero Typography */}
               <motion.div 
                 className="lg:col-span-7 flex flex-col justify-center text-left"
-                initial="hidden"
-                whileInView="visible"
-                viewport={{ once: true }}
-                variants={staggerContainer}
               >
-                <motion.div variants={fadeUpVariants}>
-                  <SectionLabel text="Trusted Counsel Since 1998" />
-                </motion.div>
+                <div className="mb-4 overflow-hidden">
+                  <motion.span 
+                    initial={{ letterSpacing: "0.1em", opacity: 0 }}
+                    animate={{ letterSpacing: "0.3em", opacity: 1 }}
+                    transition={{ duration: 1.2, ease: "easeOut" }}
+                    className="text-[10px] md:text-xs font-semibold text-firmGold uppercase block tracking-[0.3em]"
+                  >
+                    Trusted Counsel Since 1998
+                  </motion.span>
+                </div>
                 
                 <h1 
                   className="font-heading text-4xl md:text-6xl lg:text-[70px] leading-[1.05] font-light text-firmText tracking-tight mb-8"
@@ -516,9 +889,9 @@ export default function App() {
                   {["When the outcome matters,", "experience becomes", "strategy."].map((line, idx) => (
                     <div key={idx} className="overflow-hidden">
                       <motion.div
-                        initial={{ y: "100%" }}
-                        animate={{ y: 0 }}
-                        transition={{ duration: 1.1, delay: idx * 0.15, ease: [0.16, 1, 0.3, 1] }}
+                        initial={{ y: 40, opacity: 0 }}
+                        animate={{ y: 0, opacity: 1 }}
+                        transition={{ duration: 1.0, delay: idx * 0.12, ease: [0.16, 1, 0.3, 1] }}
                       >
                         {line}
                       </motion.div>
@@ -527,14 +900,18 @@ export default function App() {
                 </h1>
 
                 <motion.p 
-                  variants={fadeUpVariants}
+                  initial={{ y: 25, opacity: 0 }}
+                  animate={{ y: 0, opacity: 1 }}
+                  transition={{ duration: 0.8, delay: 0.45, ease: [0.16, 1, 0.3, 1] }}
                   className="text-base md:text-lg text-firmMuted max-w-xl font-light leading-relaxed mb-10"
                 >
                   For over two decades, we have represented individuals, families, and businesses through their most important legal challenges. Precision in advice, authority in outcomes.
                 </motion.p>
 
                 <motion.div 
-                  variants={fadeUpVariants} 
+                  initial={{ y: 25, opacity: 0 }}
+                  animate={{ y: 0, opacity: 1 }}
+                  transition={{ duration: 0.8, delay: 0.58, ease: [0.16, 1, 0.3, 1] }}
                   className="flex flex-wrap items-center gap-6"
                 >
                   <a 
@@ -560,14 +937,14 @@ export default function App() {
         <Divider />
 
         {/* SECTION 02 — TRUST BAR */}
-        <section className="bg-firmSurface/30 py-8 border-y border-firmBorder/20">
+        <section ref={trustBarRef} className="bg-firmSurface/30 py-8 border-y border-firmBorder/20 relative overflow-hidden">
           <div className="editorial-container">
             <motion.div 
-              className="grid grid-cols-2 md:grid-cols-4 gap-6 md:gap-0"
-              initial="hidden"
-              whileInView="visible"
-              viewport={{ once: true }}
-              variants={staggerContainer}
+              initial={{ y: 30, opacity: 0 }}
+              whileInView={{ y: 0, opacity: 1 }}
+              viewport={{ once: true, margin: "-50px" }}
+              transition={{ duration: 0.8, ease: [0.16, 1, 0.3, 1] }}
+              className="grid grid-cols-2 md:grid-cols-4 gap-6 md:gap-0 relative"
             >
               {[
                 { count: "2500+", title: "Cases Resolved" },
@@ -575,14 +952,33 @@ export default function App() {
                 { count: "4.9/5", title: "Client Rating" },
                 { count: "15+", title: "Industry Awards" }
               ].map((metric, index) => (
-                <motion.div 
+                <div 
                   key={index}
-                  variants={fadeUpVariants}
-                  className={`flex flex-col items-center justify-center text-center px-4 ${index !== 3 ? 'md:border-r border-firmBorder' : ''}`}
+                  className="flex flex-col items-center justify-center text-center px-4 relative"
                 >
-                  <span className="font-heading text-2xl md:text-4xl text-firmGold font-light mb-1">{metric.count}</span>
-                  <span className="text-[9px] md:text-[10px] tracking-[0.2em] text-firmMuted uppercase font-semibold">{metric.title}</span>
-                </motion.div>
+                  <motion.div 
+                    style={{ y: trustBarY }}
+                    className="flex flex-col items-center"
+                  >
+                    <span className="font-heading text-2xl md:text-4xl text-firmGold font-light mb-1 select-none">
+                      <AnimatedCounter value={metric.count} />
+                    </span>
+                    <span className="text-[9px] md:text-[10px] tracking-[0.2em] text-firmMuted uppercase font-semibold">{metric.title}</span>
+                  </motion.div>
+
+                  {/* Top-to-bottom drawing gold dividers */}
+                  {index !== 3 && (
+                    <div className="hidden md:block absolute right-0 top-0 bottom-0 w-[1px]">
+                      <motion.div 
+                        initial={{ scaleY: 0 }}
+                        whileInView={{ scaleY: 1 }}
+                        viewport={{ once: true }}
+                        transition={{ duration: 0.8, delay: index * 0.2, ease: "easeOut" }}
+                        className="w-full h-full bg-firmBorder/40 origin-top"
+                      />
+                    </div>
+                  )}
+                </div>
               ))}
             </motion.div>
           </div>
@@ -608,19 +1004,28 @@ export default function App() {
               {practiceAreas.map((area, index) => (
                 <motion.div key={index} variants={fadeUpVariants}>
                   <InteractiveCard3D className="group min-h-[240px] hover:border-firmGold/50">
-                    <div>
-                      <h3 className="font-heading text-xl md:text-2xl text-firmText group-hover:text-firmGold transition-colors mb-4">
-                        {area.title}
-                      </h3>
-                      <p className="text-xs md:text-sm text-firmMuted font-light leading-relaxed">
-                        {area.desc}
-                      </p>
-                    </div>
-                    <div className="mt-8 flex justify-end">
-                      <span className="text-[10px] font-semibold tracking-widest text-firmGold opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-center gap-1 uppercase">
-                        Overview <ChevronRight className="w-3 h-3" />
-                      </span>
-                    </div>
+                    {({ hovered }) => (
+                      <>
+                        <div>
+                          <h3 className="font-heading text-xl md:text-2xl text-firmText group-hover:text-firmGold transition-colors mb-4">
+                            {area.title}
+                          </h3>
+                          <p className="text-xs md:text-sm text-firmMuted font-light leading-relaxed">
+                            {area.desc}
+                          </p>
+                        </div>
+                        <div className="mt-8 flex justify-end overflow-hidden h-4">
+                          <motion.span 
+                            initial={{ y: 20, opacity: 0 }}
+                            animate={{ y: hovered ? 0 : 20, opacity: hovered ? 1 : 0 }}
+                            transition={{ duration: 0.3, ease: [0.16, 1, 0.3, 1] }}
+                            className="text-[10px] font-semibold tracking-widest text-firmGold flex items-center gap-1 uppercase"
+                          >
+                            Overview <ChevronRight className="w-3 h-3" />
+                          </motion.span>
+                        </div>
+                      </>
+                    )}
                   </InteractiveCard3D>
                 </motion.div>
               ))}
@@ -632,49 +1037,7 @@ export default function App() {
         <Divider />
 
         {/* SECTION 04 — HOW WE WORK */}
-        <section id="process" className="py-20 md:py-32 bg-firmSurface/10">
-          <div className="editorial-container">
-            <div className="max-w-2xl text-left mb-16 md:mb-24">
-              <SectionLabel text="OUR PROCESS" />
-              <h2 className="font-heading text-3xl md:text-5xl font-light text-firmText mt-2">
-                A Meticulous Path to Resolution
-              </h2>
-            </div>
-
-            <motion.div 
-              className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8 relative"
-              initial="hidden"
-              whileInView="visible"
-              viewport={{ once: true }}
-              variants={staggerContainer}
-            >
-              {steps.map((step, index) => (
-                <motion.div 
-                  key={index}
-                  variants={fadeUpVariants}
-                  className="text-left relative flex flex-col justify-between"
-                >
-                  <div>
-                    {/* Icon Container */}
-                    <div className="w-10 h-10 border border-firmGold/30 flex items-center justify-center mb-6">
-                      {step.icon}
-                    </div>
-                    <h3 className="font-heading text-lg md:text-xl text-firmText mb-3">
-                      {step.title}
-                    </h3>
-                    <p className="text-xs md:text-sm text-firmMuted font-light leading-relaxed">
-                      {step.desc}
-                    </p>
-                  </div>
-                  {/* Visual Timeline line connector */}
-                  {index < 3 && (
-                    <div className="hidden lg:block absolute top-5 left-[40px] right-[-40px] h-[0.5px] bg-firmGold/20" />
-                  )}
-                </motion.div>
-              ))}
-            </motion.div>
-          </div>
-        </section>
+        <ProcessSection steps={steps} />
 
         {/* Thin gold divider */}
         <Divider />
@@ -698,6 +1061,14 @@ export default function App() {
                     src="/jonathan-mercer.png" 
                     alt="Jonathan Mercer" 
                     className="w-full h-full object-cover object-center grayscale hover:grayscale-0 transition-all duration-1000 ease-out scale-100 group-hover:scale-105"
+                  />
+                  {/* Downward Wipe Overlay */}
+                  <motion.div 
+                    initial={{ scaleY: 1 }}
+                    whileInView={{ scaleY: 0 }}
+                    viewport={{ once: true, margin: "-100px" }}
+                    transition={{ duration: 1.2, ease: [0.16, 1, 0.3, 1] }}
+                    className="absolute inset-0 bg-firmGold origin-top z-20 pointer-events-none"
                   />
                   {/* Fine Gold border accent inside */}
                   <div className="absolute inset-3 border border-firmGold/10 pointer-events-none group-hover:border-firmGold/30 transition-colors duration-500 z-20" />
@@ -742,18 +1113,22 @@ export default function App() {
                   className="border-t border-firmBorder/30 pt-8"
                 >
                   <span className="text-[10px] font-bold tracking-[0.2em] text-firmText uppercase block mb-4">Credentials &amp; Recognitions</span>
-                  <ul className="space-y-3">
+                  <motion.ul variants={staggerContainer} className="space-y-3">
                     {[
                       "Juris Doctor (JD), Harvard Law School",
                       "Top 100 Trial Lawyers (National Trial Association)",
                       "State Bar Board Member (Litigation Division)"
                     ].map((cred, i) => (
-                      <li key={i} className="flex items-center text-xs md:text-sm text-firmMuted font-light">
+                      <motion.li 
+                        variants={fadeUpVariants}
+                        key={i} 
+                        className="flex items-center text-xs md:text-sm text-firmMuted font-light"
+                      >
                         <span className="w-1.5 h-1.5 bg-firmGold mr-3"></span>
                         {cred}
-                      </li>
+                      </motion.li>
                     ))}
-                  </ul>
+                  </motion.ul>
                 </motion.div>
               </motion.div>
             </div>
@@ -782,13 +1157,26 @@ export default function App() {
             >
               {caseResults.map((result, index) => (
                 <motion.div key={index} variants={fadeUpVariants}>
-                  <InteractiveCard3D onClick={() => setSelectedCase(result)} className="group min-h-[220px] hover:border-firmGold/50">
+                  <InteractiveCard3D 
+                    onClick={() => setSelectedCase(result)} 
+                    className="group min-h-[220px] hover:border-firmGold/50"
+                    drawTopBorder={true}
+                    borderDelay={0.2 + index * 0.1}
+                  >
                     <div>
                       <span className="text-[10px] font-semibold tracking-widest text-firmGold/60 uppercase block mb-2">
                         {result.type}
                       </span>
-                      <div className="font-heading text-3xl md:text-4xl text-firmGold font-light mb-4 tracking-tight">
-                        {result.amount}
+                      <div className="overflow-hidden mb-4">
+                        <motion.div
+                          initial={{ y: 30, opacity: 0 }}
+                          whileInView={{ y: 0, opacity: 1 }}
+                          viewport={{ once: true }}
+                          transition={{ duration: 0.6, delay: 0.1 + index * 0.1, ease: [0.16, 1, 0.3, 1] }}
+                          className="font-heading text-3xl md:text-4xl text-firmGold font-light tracking-tight"
+                        >
+                          {result.amount}
+                        </motion.div>
                       </div>
                       <div className="text-xs md:text-sm text-firmText font-medium">
                         {result.label}
@@ -841,22 +1229,39 @@ export default function App() {
                       initial="hidden"
                       whileInView="visible"
                       viewport={{ once: true, margin: "-100px" }}
-                      variants={fadeUpVariants}
+                      variants={staggerContainer}
                       className="border-b border-firmBorder/20 pb-16 last:border-b-0 last:pb-0"
                     >
                       <div className="flex justify-center mb-6">
-                        <div className="flex space-x-1">
+                        <motion.div 
+                          variants={staggerContainer}
+                          className="flex space-x-1"
+                        >
                           {Array.from({ length: 5 }).map((_, i) => (
-                            <Star key={i} className="w-4 h-4 text-firmGold fill-firmGold" />
+                            <motion.div
+                              key={i}
+                              variants={{
+                                hidden: { scale: 0, opacity: 0 },
+                                visible: { scale: 1, opacity: 1, transition: { duration: 0.3, ease: "easeOut" } }
+                              }}
+                            >
+                              <Star className="w-4 h-4 text-firmGold fill-firmGold" />
+                            </motion.div>
                           ))}
-                        </div>
+                        </motion.div>
                       </div>
-                      <blockquote className="font-heading text-2xl md:text-3xl lg:text-4xl text-firmText italic font-light leading-relaxed max-w-2xl mx-auto mb-6">
+                      <motion.blockquote 
+                        variants={fadeUpVariants}
+                        className="font-heading text-2xl md:text-3xl lg:text-4xl text-firmText italic font-light leading-relaxed max-w-2xl mx-auto mb-6"
+                      >
                         "{t.text}"
-                      </blockquote>
-                      <cite className="not-italic text-xs tracking-widest text-firmMuted uppercase font-medium">
+                      </motion.blockquote>
+                      <motion.cite 
+                        variants={fadeUpVariants}
+                        className="not-italic text-xs tracking-widest text-firmMuted uppercase font-medium block"
+                      >
                         — {t.author} <span className="text-firmGold mx-2">·</span> {t.case}
-                      </cite>
+                      </motion.cite>
                     </motion.div>
                   ))}
                 </div>
@@ -888,24 +1293,49 @@ export default function App() {
               {articles.map((article, index) => (
                 <motion.div key={index} variants={fadeUpVariants}>
                   <InteractiveCard3D className="group hover:border-firmGold/50">
-                    <div>
-                      <div className="flex items-center justify-between text-[10px] tracking-widest text-firmMuted font-semibold mb-6 uppercase">
-                        <span>{article.category}</span>
-                        <span>{article.date}</span>
-                      </div>
-                      <h3 className="font-heading text-xl md:text-2xl text-firmText mb-4 group-hover:text-firmGold transition-colors leading-snug">
-                        {article.headline}
-                      </h3>
-                      <p className="text-xs md:text-sm text-firmMuted font-light leading-relaxed">
-                        {article.excerpt}
-                      </p>
-                    </div>
-                    <div className="mt-8 pt-6 border-t border-firmBorder/10 flex items-center justify-between w-full">
-                      <span className="text-[10px] font-semibold tracking-widest text-firmText uppercase group-hover:text-firmGold transition-colors">
-                        Read Article
-                      </span>
-                      <ArrowRight className="w-4 h-4 text-firmMuted group-hover:text-firmGold transition-colors group-hover:translate-x-1" />
-                    </div>
+                    {({ hovered }) => (
+                      <>
+                        <div className="w-full">
+                          <div className="flex items-center justify-between text-[10px] tracking-widest text-firmMuted font-semibold mb-6 uppercase overflow-hidden">
+                            <motion.span 
+                              animate={{ x: hovered ? 8 : 0 }} 
+                              transition={{ duration: 0.3, ease: "easeOut" }}
+                              className="text-firmGold"
+                            >
+                              {article.category}
+                            </motion.span>
+                            <span>{article.date}</span>
+                          </div>
+                          <div className="relative pb-2 mb-4">
+                            <h3 className="font-heading text-xl md:text-2xl text-firmText group-hover:text-firmGold transition-colors leading-snug">
+                              {article.headline}
+                            </h3>
+                            <div className="absolute bottom-0 left-0 right-0 h-[1.5px] overflow-hidden">
+                              <motion.div 
+                                initial={{ scaleX: 0 }}
+                                animate={{ scaleX: hovered ? 1 : 0 }}
+                                transition={{ duration: 0.4, ease: "easeOut" }}
+                                className="h-full bg-firmGold origin-left"
+                              />
+                            </div>
+                          </div>
+                          <p className="text-xs md:text-sm text-firmMuted font-light leading-relaxed">
+                            {article.excerpt}
+                          </p>
+                        </div>
+                        <div className="mt-8 pt-6 border-t border-firmBorder/10 flex items-center justify-between w-full">
+                          <span className="text-[10px] font-semibold tracking-widest text-firmText uppercase group-hover:text-firmGold transition-colors">
+                            Read Article
+                          </span>
+                          <motion.div
+                            animate={{ x: hovered ? 4 : 0 }}
+                            transition={{ duration: 0.2, ease: "easeOut" }}
+                          >
+                            <ArrowRight className="w-4 h-4 text-firmMuted group-hover:text-firmGold transition-colors" />
+                          </motion.div>
+                        </div>
+                      </>
+                    )}
                   </InteractiveCard3D>
                 </motion.div>
               ))}
@@ -995,86 +1425,83 @@ export default function App() {
                     {/* Step 1: Select Practice */}
                     <div>
                       <label className="text-[10px] font-semibold tracking-widest text-firmMuted uppercase block mb-2">Practice Matter</label>
-                      <select 
+                      <FocusBorderSelect 
                         required
                         value={bookingForm.practice}
                         onChange={(e) => setBookingForm({...bookingForm, practice: e.target.value})}
-                        className="w-full bg-[#0A0A0F] border border-firmBorder px-4 py-3 text-xs md:text-sm text-firmText focus:border-firmGold focus:outline-none"
+                        className="w-full bg-[#0A0A0F] border px-4 py-3 text-xs md:text-sm text-firmText"
                       >
                         {practiceAreas.map((area, i) => (
                           <option key={i} value={area.title}>{area.title}</option>
                         ))}
-                      </select>
+                      </FocusBorderSelect>
                     </div>
 
                     {/* Step 2: Date & Time Picker */}
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       <div>
                         <label className="text-[10px] font-semibold tracking-widest text-firmMuted uppercase block mb-2">Preferred Date</label>
-                        <div className="relative">
-                          <input 
-                            type="date"
-                            required
-                            value={bookingForm.date}
-                            onChange={(e) => setBookingForm({...bookingForm, date: e.target.value})}
-                            className="w-full bg-[#0A0A0F] border border-firmBorder px-4 py-3 text-xs md:text-sm text-firmText focus:border-firmGold focus:outline-none"
-                          />
-                        </div>
+                        <FocusBorderInput 
+                          type="date"
+                          required
+                          value={bookingForm.date}
+                          onChange={(e) => setBookingForm({...bookingForm, date: e.target.value})}
+                          className="w-full bg-[#0A0A0F] border px-4 py-3 text-xs md:text-sm text-firmText"
+                        />
                       </div>
 
                       <div>
                         <label className="text-[10px] font-semibold tracking-widest text-firmMuted uppercase block mb-2">Time Slot</label>
-                        <select 
+                        <FocusBorderSelect 
                           required
                           value={bookingForm.time}
                           onChange={(e) => setBookingForm({...bookingForm, time: e.target.value})}
-                          className="w-full bg-[#0A0A0F] border border-firmBorder px-4 py-3 text-xs md:text-sm text-firmText focus:border-firmGold focus:outline-none"
+                          className="w-full bg-[#0A0A0F] border px-4 py-3 text-xs md:text-sm text-firmText"
                         >
                           <option value="09:00 AM">09:00 AM - Eastern</option>
                           <option value="10:00 AM">10:00 AM - Eastern</option>
                           <option value="01:30 PM">01:30 PM - Eastern</option>
                           <option value="03:00 PM">03:00 PM - Eastern</option>
-                        </select>
+                        </FocusBorderSelect>
                       </div>
                     </div>
 
                     {/* Step 3: Contact Details */}
                     <div className="space-y-4">
                       <div>
-                        <input 
+                        <FocusBorderInput 
                           type="text"
                           required
                           placeholder="Your Legal/Firm Name"
                           value={bookingForm.name}
                           onChange={(e) => setBookingForm({...bookingForm, name: e.target.value})}
-                          className="w-full bg-[#0A0A0F] border border-firmBorder px-4 py-3 text-xs md:text-sm text-firmText focus:border-firmGold focus:outline-none placeholder-firmMuted/40"
+                          className="w-full bg-[#0A0A0F] border px-4 py-3 text-xs md:text-sm text-firmText placeholder-firmMuted/40"
                         />
                       </div>
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <input 
+                        <FocusBorderInput 
                           type="email"
                           required
                           placeholder="Confidential Email"
                           value={bookingForm.email}
                           onChange={(e) => setBookingForm({...bookingForm, email: e.target.value})}
-                          className="w-full bg-[#0A0A0F] border border-firmBorder px-4 py-3 text-xs md:text-sm text-firmText focus:border-firmGold focus:outline-none placeholder-firmMuted/40"
+                          className="w-full bg-[#0A0A0F] border px-4 py-3 text-xs md:text-sm text-firmText placeholder-firmMuted/40"
                         />
-                        <input 
+                        <FocusBorderInput 
                           type="tel"
                           required
                           placeholder="Secure Phone"
                           value={bookingForm.phone}
                           onChange={(e) => setBookingForm({...bookingForm, phone: e.target.value})}
-                          className="w-full bg-[#0A0A0F] border border-firmBorder px-4 py-3 text-xs md:text-sm text-firmText focus:border-firmGold focus:outline-none placeholder-firmMuted/40"
+                          className="w-full bg-[#0A0A0F] border px-4 py-3 text-xs md:text-sm text-firmText placeholder-firmMuted/40"
                         />
                       </div>
                     </div>
 
                     {/* Submit Button */}
-                    <button 
+                    <SweepButton 
                       type="submit"
                       disabled={bookingStatus === 'booking'}
-                      className="w-full bg-firmGold text-[#0A0A0F] py-4 text-xs font-semibold tracking-widest uppercase hover:bg-firmGold/90 transition-all duration-300 flex items-center justify-center space-x-2"
                     >
                       {bookingStatus === 'booking' ? (
                         <>
@@ -1087,7 +1514,7 @@ export default function App() {
                           <span>Confirm Consult Reservation</span>
                         </>
                       )}
-                    </button>
+                    </SweepButton>
                   </form>
                 )}
               </div>
@@ -1098,11 +1525,21 @@ export default function App() {
       </main>
 
       {/* FOOTER */}
-      <footer className="border-t border-firmBorder bg-firmSurface/20 py-16 md:py-24 relative z-10">
+      <footer className="bg-firmSurface/20 py-16 md:py-24 relative z-10">
+        {/* Draw top border */}
+        <div className="absolute top-0 left-0 right-0">
+          <Divider />
+        </div>
         <div className="editorial-container">
-          <div className="grid grid-cols-1 md:grid-cols-12 gap-12 items-start text-left">
+          <motion.div 
+            initial="hidden"
+            whileInView="visible"
+            viewport={{ once: true, margin: "-50px" }}
+            variants={staggerContainer}
+            className="grid grid-cols-1 md:grid-cols-12 gap-12 items-start text-left"
+          >
             {/* Brand column */}
-            <div className="md:col-span-5">
+            <motion.div variants={fadeUpVariants} className="md:col-span-5">
               <div className="mb-6">
                 <img 
                   src="/logo.png" 
@@ -1116,10 +1553,10 @@ export default function App() {
               <div className="text-[10px] text-firmMuted/60 tracking-wider">
                 &copy; {new Date().getFullYear()} Mercer &amp; Associates LLC. All rights reserved.
               </div>
-            </div>
+            </motion.div>
 
             {/* Links column */}
-            <div className="md:col-span-4 grid grid-cols-2 gap-8">
+            <motion.div variants={fadeUpVariants} className="md:col-span-4 grid grid-cols-2 gap-8">
               <div>
                 <span className="text-[10px] font-bold tracking-[0.2em] text-firmGold uppercase block mb-4">Firm</span>
                 <ul className="space-y-3 text-xs text-firmMuted font-light">
@@ -1138,16 +1575,16 @@ export default function App() {
                   <li><a href="#" className="hover:text-firmText transition-colors">Terms of Representation</a></li>
                 </ul>
               </div>
-            </div>
+            </motion.div>
 
             {/* Professional Notice column */}
-            <div className="md:col-span-3 text-xs text-firmMuted/60 font-light border-l border-firmBorder/30 pl-6 space-y-4">
+            <motion.div variants={fadeUpVariants} className="md:col-span-3 text-xs text-firmMuted/60 font-light border-l border-firmBorder/30 pl-6 space-y-4">
               <span className="text-[10px] font-semibold tracking-widest text-firmGold uppercase block">Legal Advertisement</span>
               <p className="leading-relaxed text-[11px]">
                 The materials on this website are for informational purposes only and do not constitute legal advice. Prior results do not guarantee a similar outcome.
               </p>
-            </div>
-          </div>
+            </motion.div>
+          </motion.div>
         </div>
       </footer>
 
@@ -1185,8 +1622,13 @@ export default function App() {
               </div>
 
               {/* Main Info */}
-              <div className="text-left space-y-8">
-                <div>
+              <motion.div 
+                variants={staggerContainer}
+                initial="hidden"
+                animate="visible"
+                className="text-left space-y-8"
+              >
+                <motion.div variants={fadeUpVariants}>
                   <span className="text-xs font-semibold text-firmGold uppercase tracking-widest block mb-2">
                     {selectedCase.type}
                   </span>
@@ -1196,36 +1638,36 @@ export default function App() {
                   <p className="text-base text-firmText font-medium">
                     {selectedCase.label}
                   </p>
-                </div>
+                </motion.div>
 
-                <hr className="border-t border-firmBorder/30" />
+                <motion.hr variants={fadeUpVariants} className="border-t border-firmBorder/30" />
 
                 {/* Case Sections */}
-                <div className="space-y-6">
-                  <div>
+                <motion.div variants={staggerContainer} className="space-y-6">
+                  <motion.div variants={fadeUpVariants}>
                     <h4 className="text-[10px] font-bold tracking-widest text-firmGold uppercase mb-2">The Challenge</h4>
                     <p className="text-xs md:text-sm text-firmMuted font-light leading-relaxed">
                       {selectedCase.challenge}
                     </p>
-                  </div>
+                  </motion.div>
 
-                  <div>
+                  <motion.div variants={fadeUpVariants}>
                     <h4 className="text-[10px] font-bold tracking-widest text-firmGold uppercase mb-2">Legal Strategy</h4>
                     <p className="text-xs md:text-sm text-firmMuted font-light leading-relaxed">
                       {selectedCase.strategy}
                     </p>
-                  </div>
+                  </motion.div>
 
-                  <div>
+                  <motion.div variants={fadeUpVariants}>
                     <h4 className="text-[10px] font-bold tracking-widest text-firmGold uppercase mb-2">Case Outcome</h4>
                     <p className="text-xs md:text-sm text-firmMuted font-light leading-relaxed">
                       {selectedCase.outcome}
                     </p>
-                  </div>
-                </div>
+                  </motion.div>
+                </motion.div>
 
                 {/* Action button */}
-                <div className="pt-8 border-t border-firmBorder/30">
+                <motion.div variants={fadeUpVariants} className="pt-8 border-t border-firmBorder/30">
                   <a 
                     href="#contact" 
                     onClick={() => setSelectedCase(null)}
@@ -1233,8 +1675,8 @@ export default function App() {
                   >
                     Discuss a Similar Matter
                   </a>
-                </div>
-              </div>
+                </motion.div>
+              </motion.div>
             </motion.div>
           </>
         )}
