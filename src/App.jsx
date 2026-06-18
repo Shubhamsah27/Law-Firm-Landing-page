@@ -225,7 +225,53 @@ function CinematicPlaceholder({ height = "h-[450px] md:h-[600px]", monogram = "M
   );
 }
 
+// Elegant Preloader Splash Screen
+function Preloader({ onComplete }) {
+  return (
+    <motion.div
+      initial={{ opacity: 1 }}
+      exit={{ 
+        opacity: 0,
+        transition: { duration: 0.8, ease: [0.16, 1, 0.3, 1] }
+      }}
+      className="fixed inset-0 bg-[#0A0A0F] z-[9999] flex flex-col items-center justify-center select-none"
+    >
+      <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,transparent_30%,#0A0A0F_100%)] pointer-events-none" />
+
+      {/* Brand Monogram */}
+      <motion.div
+        initial={{ y: 25, opacity: 0 }}
+        animate={{ y: 0, opacity: 1 }}
+        transition={{ duration: 1, ease: [0.16, 1, 0.3, 1] }}
+        className="text-center z-10"
+      >
+        <div className="w-16 h-16 border border-firmGold/30 flex items-center justify-center mx-auto mb-6">
+          <span className="font-heading text-3xl text-firmGold font-light tracking-widest">M</span>
+        </div>
+        <h1 className="font-heading text-2xl md:text-3xl text-firmText tracking-[0.3em] font-light uppercase">
+          Mercer &amp; Associates
+        </h1>
+        <p className="text-[9px] tracking-[0.25em] text-firmMuted uppercase font-medium mt-2">
+          Attorneys &amp; Counselors at Law
+        </p>
+      </motion.div>
+
+      {/* Subtle Loading Progress Bar */}
+      <div className="w-48 h-[1.5px] bg-firmBorder/20 mt-8 relative overflow-hidden z-10">
+        <motion.div
+          initial={{ scaleX: 0 }}
+          animate={{ scaleX: 1 }}
+          transition={{ duration: 2.5, ease: "easeInOut" }}
+          className="absolute inset-0 bg-firmGold origin-left h-full"
+          onAnimationComplete={onComplete}
+        />
+      </div>
+    </motion.div>
+  );
+}
+
 export default function App() {
+  const [loading, setLoading] = useState(true);
   const [scrolled, setScrolled] = useState(false);
   const [selectedCase, setSelectedCase] = useState(null);
   const [bookingStatus, setBookingStatus] = useState(null); // 'idle', 'booking', 'success'
@@ -244,6 +290,18 @@ export default function App() {
     damping: 30,
     restDelta: 0.001
   });
+
+  // Lock scroll while loader is active
+  useEffect(() => {
+    if (loading) {
+      document.body.style.overflow = 'hidden';
+    } else {
+      document.body.style.overflow = 'unset';
+    }
+    return () => {
+      document.body.style.overflow = 'unset';
+    };
+  }, [loading]);
 
   useEffect(() => {
     const handleScroll = () => {
@@ -371,6 +429,13 @@ export default function App() {
 
   return (
     <div className="relative min-h-screen bg-[#0A0A0F] text-[#F5F1EA] selection:bg-firmGold selection:text-[#0A0A0F]">
+      {/* Preloader Splash Screen */}
+      <AnimatePresence>
+        {loading && (
+          <Preloader onComplete={() => setLoading(false)} />
+        )}
+      </AnimatePresence>
+
       {/* Scroll Progress Indicator */}
       <motion.div 
         className="fixed top-0 left-0 right-0 h-[1.5px] bg-firmGold origin-left z-[100]"
