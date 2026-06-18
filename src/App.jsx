@@ -740,7 +740,13 @@ function TestimonialCarousel() {
       onMouseLeave={() => setHovered(false)}
       className="relative max-w-3xl mx-auto"
     >
-      <div className="min-h-[220px] md:min-h-[180px] flex items-center justify-center">
+      <div className="min-h-[360px] md:min-h-[320px] flex items-center justify-center bg-firmSurface border border-firmBorder p-8 md:p-12 relative overflow-hidden select-none">
+        
+        {/* Large " quotation mark, gold, opacity 0.4, top-left */}
+        <span className="absolute top-4 left-6 font-serif text-8xl text-firmGold opacity-40 select-none pointer-events-none leading-none font-bold">
+          “
+        </span>
+
         <AnimatePresence mode="wait">
           <motion.div
             key={idx}
@@ -748,24 +754,39 @@ function TestimonialCarousel() {
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -10 }}
             transition={{ duration: 0.8, ease: "easeOut" }}
-            className="w-full text-center"
+            className="w-full text-center flex flex-col items-center"
           >
-            {/* Stars */}
-            <div className="flex justify-center mb-6">
+            {/* Star row (★ ★ ★ ★ ★), gold, small */}
+            <div className="flex justify-center mb-4 mt-2">
               <div className="flex space-x-1">
                 {Array.from({ length: 5 }).map((_, i) => (
-                  <Star key={i} className="w-4 h-4 text-firmGold fill-firmGold" />
+                  <Star key={i} className="w-3.5 h-3.5 text-firmGold fill-firmGold" />
                 ))}
               </div>
             </div>
             
-            <blockquote className="font-heading text-xl md:text-2xl lg:text-3xl text-firmText italic font-light leading-relaxed max-w-2xl mx-auto mb-6">
+            {/* Quote text, italic serif, readable size */}
+            <blockquote className="font-heading text-lg md:text-xl text-firmText italic font-light leading-relaxed max-w-2xl mx-auto mb-6 px-4">
               "{testimonials[idx].text}"
             </blockquote>
+
+            {/* Divider line, 1px rgba(201,168,76,0.15) */}
+            <div className="w-24 h-[1px] bg-[rgba(201,168,76,0.15)] mb-6" />
             
-            <cite className="not-italic text-xs tracking-widest text-firmMuted uppercase font-medium block">
-              — {testimonials[idx].author} <span className="text-firmGold mx-2">·</span> {testimonials[idx].case}
-            </cite>
+            {/* Avatar initials circle + Name (medium weight) + Title/descriptor below in muted text */}
+            <div className="flex flex-col items-center">
+              <div className="w-10 h-10 rounded-none border border-firmGold/30 flex items-center justify-center bg-[#0A0A0F] mb-3">
+                <span className="text-xs font-semibold tracking-wider text-firmGold uppercase">
+                  {testimonials[idx].author.split(' ').map(n => n[0]).join('')}
+                </span>
+              </div>
+              <span className="text-sm font-semibold tracking-widest text-firmText uppercase">
+                {testimonials[idx].author}
+              </span>
+              <span className="text-[10px] tracking-widest text-firmMuted uppercase font-medium mt-1">
+                {testimonials[idx].case}
+              </span>
+            </div>
           </motion.div>
         </AnimatePresence>
       </div>
@@ -1488,49 +1509,61 @@ export default function App() {
         {/* SECTION 09 — CONTACT & SCHEDULER */}
         <section id="contact" className="py-20 md:py-32">
           <div className="editorial-container">
-            <div className="grid grid-cols-1 lg:grid-cols-12 gap-16">
-              {/* Left Column: Context Info */}
-              <div className="lg:col-span-5 text-left flex flex-col justify-between">
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-12 lg:gap-16 items-start">
+              
+              {/* Left Column: Three structured info cards - Location, Hours, Contact */}
+              <div className="lg:col-span-5 space-y-6 text-left">
                 <div>
                   <SectionLabel text="CONTACT" />
                   <h2 className="font-heading text-3xl md:text-5xl font-light text-firmText mt-2 mb-6">
                     Let's Discuss What Comes Next.
                   </h2>
-                  <p className="text-sm md:text-base text-firmMuted font-light leading-relaxed mb-10 max-w-md">
+                  <p className="text-sm md:text-base text-firmMuted font-light leading-relaxed mb-8">
                     Whether you are facing an active dispute, planning for the future, or protecting a business portfolio, our team offers the precision and authority required for resolution.
                   </p>
                 </div>
 
-                {/* Contact Channels */}
-                <div className="space-y-6 border-t border-firmBorder/30 pt-8 mt-8 lg:mt-0">
-                  <div className="flex items-start space-x-4">
-                    <div className="w-8 h-8 border border-firmGold/30 flex items-center justify-center mt-1">
-                      <Phone className="w-4 h-4 text-firmGold" />
-                    </div>
-                    <div>
-                      <span className="text-[10px] font-semibold tracking-widest text-firmMuted uppercase block">Telephone</span>
-                      <a href="tel:5551234567" className="text-sm md:text-base text-firmText hover:text-firmGold transition-colors">(555) 123-4567</a>
-                    </div>
+                {/* Card 1: Location */}
+                <div className="bg-firmSurface border border-firmBorder p-6 flex items-start space-x-4">
+                  <div className="w-10 h-10 border border-firmGold/30 flex items-center justify-center flex-shrink-0 mt-0.5">
+                    <MapPin className="w-5 h-5 text-firmGold" />
                   </div>
-
-                  <div className="flex items-start space-x-4">
-                    <div className="w-8 h-8 border border-firmGold/30 flex items-center justify-center mt-1">
-                      <Mail className="w-4 h-4 text-firmGold" />
-                    </div>
-                    <div>
-                      <span className="text-[10px] font-semibold tracking-widest text-firmMuted uppercase block">Confidential Email</span>
-                      <a href="mailto:contact@mercerlaw.com" className="text-sm md:text-base text-firmText hover:text-firmGold transition-colors">contact@mercerlaw.com</a>
-                    </div>
+                  <div>
+                    <span className="text-[10px] font-bold tracking-widest text-firmGold uppercase block mb-1">Headquarters</span>
+                    <h4 className="text-sm font-semibold text-firmText mb-1">San Francisco Office</h4>
+                    <p className="text-xs text-firmMuted font-light leading-relaxed">
+                      600 Montgomery St, San Francisco, CA 94111
+                    </p>
                   </div>
+                </div>
 
-                  <div className="flex items-start space-x-4">
-                    <div className="w-8 h-8 border border-firmGold/30 flex items-center justify-center mt-1">
-                      <MapPin className="w-4 h-4 text-firmGold" />
-                    </div>
-                    <div>
-                      <span className="text-[10px] font-semibold tracking-widest text-firmMuted uppercase block">Headquarters</span>
-                      <span className="text-xs md:text-sm text-firmMuted font-light block">600 Montgomery St, San Francisco, CA 94111</span>
-                    </div>
+                {/* Card 2: Hours */}
+                <div className="bg-firmSurface border border-firmBorder p-6 flex items-start space-x-4">
+                  <div className="w-10 h-10 border border-firmGold/30 flex items-center justify-center flex-shrink-0 mt-0.5">
+                    <Clock className="w-5 h-5 text-firmGold" />
+                  </div>
+                  <div>
+                    <span className="text-[10px] font-bold tracking-widest text-firmGold uppercase block mb-1">Availability</span>
+                    <h4 className="text-sm font-semibold text-firmText mb-1">Operating Hours</h4>
+                    <p className="text-xs text-firmMuted font-light leading-relaxed">
+                      Monday — Friday: 08:30 AM — 06:00 PM<br />
+                      Weekend: On-call for urgent retainers
+                    </p>
+                  </div>
+                </div>
+
+                {/* Card 3: Contact */}
+                <div className="bg-firmSurface border border-firmBorder p-6 flex items-start space-x-4">
+                  <div className="w-10 h-10 border border-firmGold/30 flex items-center justify-center flex-shrink-0 mt-0.5">
+                    <Mail className="w-5 h-5 text-firmGold" />
+                  </div>
+                  <div>
+                    <span className="text-[10px] font-bold tracking-widest text-firmGold uppercase block mb-1">Direct Channels</span>
+                    <h4 className="text-sm font-semibold text-firmText mb-1">Telephone &amp; Email</h4>
+                    <p className="text-xs text-firmMuted font-light leading-relaxed">
+                      Phone: <a href="tel:5551234567" className="text-firmText hover:text-firmGold transition-colors font-medium">(555) 123-4567</a><br />
+                      Secure: <a href="mailto:contact@mercerlaw.com" className="text-firmText hover:text-firmGold transition-colors font-medium">contact@mercerlaw.com</a>
+                    </p>
                   </div>
                 </div>
               </div>
