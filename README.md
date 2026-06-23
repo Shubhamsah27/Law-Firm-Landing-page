@@ -2,7 +2,9 @@
 
 A premium, interactive React landing page and modular section library designed for elite legal practices. Features curated HSL color palettes, modern typography, 3D tilt interactions, and dynamic SVG border drawings.
 
-**🔗 Live Playground (Section Library Mode):** `?mode=library`
+**🔗 Live Link (Landing Page):** [https://law-firm-template-qtuy.onrender.com/](https://law-firm-template-qtuy.onrender.com/)
+
+**🔗 Live Playground (Section Library Mode):** [https://law-firm-template-qtuy.onrender.com/?mode=library](https://law-firm-template-qtuy.onrender.com/?mode=library)
 
 ---
 
