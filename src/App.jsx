@@ -808,7 +808,14 @@ function TestimonialCarousel() {
   );
 }
 
+import SectionLibraryViewer from './library/SectionLibraryViewer';
+
 export default function App() {
+  const isLibraryMode = new URLSearchParams(window.location.search).get('mode') === 'library';
+  if (isLibraryMode) {
+    return <SectionLibraryViewer />;
+  }
+
   const [loading, setLoading] = useState(true);
   const [scrolled, setScrolled] = useState(false);
   const [selectedCase, setSelectedCase] = useState(null);
